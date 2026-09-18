@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AetherFocus - Focus Engine & Study Tracker</title>
+  <title>AetherFocus Cloud - Realtime Dual Study Engine</title>
   <meta name="theme-color" content="#07090e">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="description" content="Obsidian dark dual-profile AI study timer with background delta timing and calendar heatmaps.">
+  <meta name="description" content="Online cross-device synchronized study tracker with background delta timing and heatmap calendar.">
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -65,10 +65,6 @@
       border: 1px solid rgba(27, 35, 56, 0.9);
     }
 
-    .card-glass:hover {
-      border-color: rgba(56, 189, 248, 0.4);
-    }
-
     /* Custom smooth scrollbars */
     ::-webkit-scrollbar {
       width: 5px;
@@ -84,11 +80,18 @@
     ::-webkit-scrollbar-thumb:hover {
       background: var(--active-accent);
     }
+
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.9; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.96); }
+    }
+    .animate-pulse-slow {
+      animation: pulseGlow 3s infinite ease-in-out;
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col glow-radial selection:bg-sky-500/20 selection:text-sky-300">
 
-  <!-- Header Navigation -->
   <header class="sticky top-0 z-40 border-b border-brand-border/80 bg-brand-black/90 backdrop-blur-xl px-3 sm:px-6 lg:px-8 py-3 flex items-center justify-between shadow-2xl">
     <div class="flex items-center gap-3">
       <div id="brand-logo-icon" class="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 shadow-lg shadow-sky-500/20 transition-all duration-300">
@@ -103,7 +106,12 @@
             Profile H
           </span>
         </div>
-        <p class="text-[11px] text-slate-400 hidden sm:block">Zero-Friction Offline & Cloud Ready Engine</p>
+        <!-- Live Cloud Sync Room Status Pill -->
+        <button onclick="openSyncModal()" class="flex items-center gap-1.5 text-[10px] font-mono text-slate-400 hover:text-white transition group mt-0.5" title="Click to view or change Cloud Sync Room">
+          <span id="cloud-indicator-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span id="cloud-status-text" class="text-emerald-400 font-semibold">Online:</span>
+          <span id="cloud-room-id-display" class="bg-brand-surface px-1.5 py-0.2 rounded border border-brand-border text-slate-300 group-hover:border-sky-500">CONNECTING...</span>
+        </button>
       </div>
     </div>
 
@@ -123,9 +131,9 @@
       </button>
     </nav>
 
-    <!-- Top Right: Dual Profile Switcher & Fast Actions -->
+    <!-- Top Right Actions: Dual Profile Switcher & Fast Controls -->
     <div class="flex items-center gap-2">
-      <!-- 1-Click Dual Profile Switcher Pill -->
+      <!-- 1-Click Profile Switcher: H vs M -->
       <div class="flex items-center p-1 rounded-xl bg-brand-card border border-brand-border" title="Switch active workspace">
         <button id="btn-profile-H" onclick="switchProfile('H')" class="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold font-mono transition-all duration-200 bg-sky-500 text-black shadow-md shadow-sky-500/30">
           <span class="w-1.5 h-1.5 rounded-full bg-black"></span>
@@ -136,6 +144,20 @@
           <span>M</span>
         </button>
       </div>
+
+      <!-- Force Cloud Sync Button -->
+      <button id="btn-manual-sync" onclick="triggerManualSync()" class="p-2 rounded-xl bg-brand-card border border-brand-border text-slate-400 hover:text-sky-400 transition" title="Sync with Cloud Now">
+        <svg id="sync-spin-icon" class="w-4 h-4 transition-transform duration-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+      </button>
+
+      <!-- Cloud Key Configuration Modal Trigger -->
+      <button onclick="openSyncModal()" class="p-2 rounded-xl bg-brand-card border border-brand-border text-slate-400 hover:text-white transition" title="Cloud Sync Settings">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/>
+        </svg>
+      </button>
 
       <!-- Keep Screen Awake Toggle -->
       <button id="wake-lock-toggle" onclick="toggleWakeLock()" class="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-brand-card border border-brand-border text-xs font-mono text-slate-400 hover:text-white hover:border-slate-600 transition" title="Keep device display on during focus">
@@ -150,18 +172,12 @@
           <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
         </svg>
       </button>
-
-      <!-- Backup Menu -->
-      <button onclick="openBackupModal()" class="p-2 rounded-xl bg-brand-card border border-brand-border text-slate-400 hover:text-white transition" title="Backup and Transfer Data">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-        </svg>
-      </button>
     </div>
   </header>
+
   <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6 pb-24 md:pb-8">
 
-    <!-- Active Profile Ribbon Banner -->
+    <!-- Active Profile & Multi-Device Sync Banner -->
     <div id="profile-greeting-banner" class="rounded-2xl border border-sky-900/40 bg-gradient-to-r from-sky-950/30 via-slate-900/30 to-brand-card p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
       <div class="flex items-center gap-3">
         <div id="profile-badge-avatar" class="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-500/40 text-sky-400 flex items-center justify-center font-mono font-black text-lg shadow-inner">
@@ -173,17 +189,16 @@
             <span id="profile-banner-name" class="font-mono text-sky-300 font-extrabold px-2 py-0.5 rounded bg-sky-950/80 border border-sky-500/30">Profile H</span>
           </div>
           <p class="text-xs text-slate-400 mt-0.5">
-            Your studies, timer state, and logs are 100% private to this profile on this device.
+            Cloud synced across your laptop and phone. Data saved here updates automatically everywhere.
           </p>
         </div>
       </div>
       <div class="flex items-center gap-2 text-xs font-mono text-slate-400 self-end sm:self-auto">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span>Local Isolation Active</span>
+        <span id="cloud-banner-indicator" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="cloud-last-sync-time">Synced to Cloud</span>
       </div>
     </div>
 
-    <!-- TAB 1: DASHBOARD VIEW -->
     <section id="view-dashboard" class="space-y-6">
       <!-- High Level Metrics Cards -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -226,7 +241,7 @@
               </svg>
               Study Topics & Targets
             </h2>
-            <p class="text-xs text-slate-400">Tap any subject card to immediately launch its focus timer.</p>
+            <p class="text-xs text-slate-400">Click any subject to launch its dedicated timer.</p>
           </div>
           <button onclick="openSubjectModal()" class="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border border-sky-500/40 text-sky-300 bg-sky-950/40 hover:bg-sky-900/60 transition shadow-sm">
             + New Subject
@@ -234,15 +249,15 @@
         </div>
 
         <div id="subjects-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <!-- Injected dynamically via JS -->
+          <!-- Dynamically populated -->
         </div>
       </div>
     </section>
-    <!-- TAB 2: INTERACTIVE FOCUS TIMER VIEW -->
+
     <section id="view-timer" class="hidden max-w-2xl mx-auto space-y-6">
       <div class="rounded-3xl bg-brand-card border border-brand-border p-6 sm:p-8 text-center shadow-2xl relative overflow-hidden">
         
-        <!-- Timer Mode Selector: Stopwatch vs Pomodoro -->
+        <!-- Timer Mode Switcher -->
         <div class="inline-flex p-1 rounded-xl bg-brand-surface border border-brand-border gap-1 mb-5">
           <button id="timer-mode-stopwatch" onclick="setTimerMode('stopwatch')" class="px-4 py-1.5 rounded-lg text-xs font-bold text-black bg-sky-400 transition">
             Stopwatch
@@ -265,10 +280,10 @@
           </button>
         </div>
 
-        <!-- Pomodoro Interval Presets -->
+        <!-- Pomodoro Presets & Interval Customizer -->
         <div id="pomodoro-presets-box" class="hidden mb-6 bg-brand-surface/60 p-3 rounded-2xl border border-brand-border max-w-md mx-auto">
           <div class="text-[11px] text-slate-400 uppercase font-mono mb-2 flex items-center justify-between">
-            <span>Interval Presets</span>
+            <span>Interval Length</span>
             <span id="pomo-duration-label" class="text-sky-400 font-bold">25 Mins</span>
           </div>
           <div class="flex flex-wrap items-center justify-center gap-1.5 mb-3">
@@ -289,13 +304,13 @@
 
         <!-- Subject Picker Dropdown -->
         <div class="max-w-xs mx-auto mb-6">
-          <label class="block text-[11px] font-mono text-slate-400 uppercase mb-1">Active Study Subject</label>
+          <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Studying Topic</label>
           <select id="timer-subject-picker" onchange="onSubjectPickerChange(this.value)" class="w-full bg-brand-surface border border-brand-border rounded-xl px-3 py-2 text-xs text-white font-semibold focus:outline-none focus:border-sky-400">
             <!-- Dynamically populated -->
           </select>
         </div>
 
-        <!-- SVG Radial Ring and Counter Display -->
+        <!-- SVG Radial Dial Display -->
         <div class="relative w-64 h-64 sm:w-72 sm:h-72 mx-auto mb-6 flex items-center justify-center">
           <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
             <circle cx="50" cy="50" r="44" stroke="rgba(255,255,255,0.06)" stroke-width="5" fill="none" />
@@ -308,7 +323,7 @@
           </div>
         </div>
 
-        <!-- Timer Action Controls -->
+        <!-- Control Buttons -->
         <div class="flex items-center justify-center gap-3 mb-6">
           <button id="timer-btn-toggle" onclick="toggleTimer()" class="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-sky-400 to-blue-500 hover:from-sky-300 hover:to-blue-400 text-black font-extrabold text-sm shadow-xl shadow-sky-500/25 transition hover:scale-105 active:scale-95">
             Start Focus
@@ -329,15 +344,15 @@
         </div>
       </div>
     </section>
-    <!-- TAB 3: CALENDAR HEATMAP VIEW -->
+
     <section id="view-calendar" class="hidden space-y-6">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Calendar Matrix (2 cols on desktop) -->
+        <!-- Calendar Matrix -->
         <div class="lg:col-span-2 rounded-3xl bg-brand-card border border-brand-border p-6 shadow-xl">
           <div class="flex items-center justify-between mb-4">
             <div>
               <h2 class="text-base font-bold text-white">Study Calendar Heatmap</h2>
-              <p class="text-xs text-slate-400">Click any day to inspect exact subject breakdown.</p>
+              <p class="text-xs text-slate-400">Click any day to inspect subject breakdown.</p>
             </div>
             <div class="flex items-center gap-2">
               <button onclick="stepCalendarMonth(-1)" class="p-1.5 rounded-lg bg-brand-surface border border-brand-border text-slate-300 hover:text-white">&lt;</button>
@@ -393,7 +408,6 @@
       </div>
     </section>
 
-    <!-- TAB 4: ANALYTICS VIEW -->
     <section id="view-analytics" class="hidden space-y-6">
       <div class="rounded-3xl bg-brand-card border border-brand-border p-6 shadow-xl">
         <h2 class="text-base font-bold text-white mb-1">Subject Time Distribution</h2>
@@ -403,7 +417,6 @@
         </div>
       </div>
     </section>
-
   </main>
 
   <!-- Mobile Bottom Navigation Bar -->
@@ -421,6 +434,7 @@
       <span class="text-xs font-semibold">Stats</span>
     </button>
   </nav>
+
   <!-- Subject Create / Edit Modal -->
   <div id="modal-subject" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden">
     <div class="bg-brand-card border border-brand-border rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
@@ -466,51 +480,85 @@
     </div>
   </div>
 
-  <!-- Backup & Data Transfer Modal -->
-  <div id="modal-backup" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden">
+  <!-- Realtime Cloud Sync Configuration Modal -->
+  <div id="modal-sync" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden">
     <div class="bg-brand-card border border-brand-border rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
-      <button onclick="closeBackupModal()" class="absolute top-5 right-5 text-slate-400 hover:text-white">✕</button>
-      <div class="flex items-center gap-2 mb-2">
-        <div class="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold">📦</div>
+      <button onclick="closeSyncModal()" class="absolute top-5 right-5 text-slate-400 hover:text-white">✕</button>
+      <div class="flex items-center gap-2.5 mb-2">
+        <div class="w-9 h-9 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold">
+          ☁️
+        </div>
         <div>
-          <h3 class="text-base font-bold text-white">Backup & Transfer</h3>
-          <p class="text-xs text-slate-400">Export or import study history for Profile <span id="backup-modal-profile" class="font-mono font-bold text-sky-400">H</span></p>
+          <h3 class="text-base font-bold text-white">Online Cloud Sync</h3>
+          <p class="text-xs text-slate-400">Share subjects & logs between laptop and phone instantly</p>
         </div>
       </div>
 
       <div class="space-y-4 mt-5">
-        <div class="p-3.5 rounded-2xl bg-brand-surface border border-brand-border flex items-center justify-between">
-          <div>
-            <h4 class="text-xs font-bold text-white">Export Profile Data</h4>
-            <p class="text-[11px] text-slate-400">Save your subjects & study hours to a JSON file</p>
-          </div>
-          <button onclick="exportUserDataJSON()" class="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-bold text-xs transition">
-            Export JSON
-          </button>
-        </div>
-
-        <div class="p-3.5 rounded-2xl bg-brand-surface border border-brand-border flex items-center justify-between">
-          <div>
-            <h4 class="text-xs font-bold text-white">Import Profile Data</h4>
-            <p class="text-[11px] text-slate-400">Restore or transfer from your phone/laptop</p>
-          </div>
-          <label class="px-3 py-1.5 rounded-xl bg-brand-card border border-brand-border hover:border-sky-500 text-slate-200 font-bold text-xs cursor-pointer transition">
-            Import JSON
-            <input type="file" accept=".json" onchange="importUserDataJSON(event)" class="hidden">
+        <!-- Room Key Input & Connect -->
+        <div class="p-4 rounded-2xl bg-brand-surface border border-brand-border space-y-3">
+          <label class="block text-xs font-mono uppercase text-slate-300">
+            Sync Passcode / Room Key
           </label>
+          <p class="text-[11px] text-slate-400">
+            Enter the exact same Room Key on your phone and laptop to share data for both Profile H and Profile M.
+          </p>
+          <div class="flex items-center gap-2">
+            <input type="text" id="sync-room-input" placeholder="e.g. HM-FOCUS-2026" class="flex-1 bg-brand-black border border-brand-border rounded-xl px-3 py-2 text-xs font-mono text-sky-300 uppercase tracking-wider focus:outline-none focus:border-sky-400">
+            <button onclick="connectCustomSyncRoom()" class="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-bold text-xs transition">
+              Connect
+            </button>
+          </div>
+          <div class="flex items-center justify-between text-[11px] pt-1">
+            <button onclick="generateRandomRoomKey()" class="text-sky-400 hover:text-sky-300 font-mono">
+              ⚡ Generate Random Key
+            </button>
+            <button onclick="copyCurrentRoomKey()" class="text-slate-400 hover:text-white font-mono">
+              📋 Copy Current Key
+            </button>
+          </div>
         </div>
 
-        <div class="pt-2 border-t border-brand-border flex items-center justify-between">
-          <button onclick="confirmClearCurrentProfile()" class="text-xs text-red-400 hover:text-red-300">
-            Clear This Profile's Data
+        <!-- Connection Status & Manual Push/Pull -->
+        <div class="p-3.5 rounded-2xl bg-brand-surface border border-brand-border flex items-center justify-between">
+          <div>
+            <div class="text-xs font-bold text-white flex items-center gap-2">
+              <span id="modal-cloud-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span id="modal-cloud-status">Live Connected</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-0.5" id="modal-cloud-subtext">Auto-syncing every 20 seconds</p>
+          </div>
+          <button onclick="triggerManualSync()" class="px-3 py-1.5 rounded-xl bg-brand-card border border-brand-border hover:border-sky-400 text-xs font-mono text-slate-300 hover:text-white transition">
+            Sync Now
           </button>
-          <button onclick="closeBackupModal()" class="text-xs text-slate-400 hover:text-white font-medium">
-            Done
+        </div>
+
+        <!-- JSON File Backup Option -->
+        <div class="p-3.5 rounded-2xl bg-brand-surface border border-brand-border flex items-center justify-between">
+          <div>
+            <h4 class="text-xs font-bold text-white">Offline File Backup</h4>
+            <p class="text-[11px] text-slate-400">Export or import raw JSON file</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="exportUserDataJSON()" class="px-2.5 py-1.5 rounded-lg bg-brand-card border border-brand-border text-xs text-slate-300 hover:text-white">
+              Export
+            </button>
+            <label class="px-2.5 py-1.5 rounded-lg bg-brand-card border border-brand-border text-xs text-slate-300 hover:text-white cursor-pointer">
+              Import
+              <input type="file" accept=".json" onchange="importUserDataJSON(event)" class="hidden">
+            </label>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end pt-2">
+          <button onclick="closeSyncModal()" class="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition">
+            Close
           </button>
         </div>
       </div>
     </div>
   </div>
+
   <script>
     // Audio synthesizer for completion chime (zero external MP3 dependencies)
     function playChimeTone() {
@@ -538,22 +586,38 @@
       }
     }
 
-    // Default subjects for profiles if fresh install
+    // Default clean-slate subjects for initial room creation
     const DEFAULT_H_SUBJECTS = [
-      { id: 'sub_h_1', name: 'Cloud & Distributed Systems', color: '#38bdf8', tag: 'Engineering', goalHours: 10 },
-      { id: 'sub_h_2', name: 'Machine Learning Foundations', color: '#3b82f6', tag: 'AI & Data', goalHours: 8 }
+      { id: 'sub_h_1', name: 'Software Architecture & Cloud', color: '#38bdf8', tag: 'Engineering', goalHours: 10 },
+      { id: 'sub_h_2', name: 'Deep Learning & Neural Nets', color: '#3b82f6', tag: 'AI & Data', goalHours: 8 }
     ];
 
     const DEFAULT_M_SUBJECTS = [
       { id: 'sub_m_1', name: 'Cellular & Molecular Biology', color: '#f43f5e', tag: 'Medicine', goalHours: 12 },
-      { id: 'sub_m_2', name: 'Organic Chemistry Reactions', color: '#a855f7', tag: 'Science', goalHours: 9 }
+      { id: 'sub_m_2', name: 'Organic Chemistry Synthesis', color: '#a855f7', tag: 'Science', goalHours: 9 }
     ];
 
     // Global application state
     window.appState = {
       activeProfile: localStorage.getItem('aether_active_profile') || 'H',
-      subjects: [],
-      studyLogs: [],
+      syncRoomKey: localStorage.getItem('aether_sync_room_key') || 'HM-FOCUS-2026',
+      lastCloudTimestamp: 0,
+      isSyncing: false,
+      
+      // Dual profile full store
+      store: {
+        profileH: {
+          subjects: [...DEFAULT_H_SUBJECTS],
+          studyLogs: []
+        },
+        profileM: {
+          subjects: [...DEFAULT_M_SUBJECTS],
+          studyLogs: []
+        },
+        updatedAt: 0
+      },
+
+      // Active Timer State
       timerMode: 'stopwatch',
       pomoStage: 'focus',
       pomoMinutes: Number(localStorage.getItem('aether_pomo_minutes')) || 25,
@@ -569,54 +633,160 @@
     };
 
     let timerTickInterval = null;
+    let cloudAutoSyncInterval = null;
 
-    // Load active profile data
-    function loadProfileData(profileId) {
-      const storageKey = `aether_profile_${profileId}_data`;
-      const rawData = localStorage.getItem(storageKey);
+    const CLOUD_SYNC_ENDPOINT = 'https://kvdb.io/4y9y2g8X4kS3YJ2L91tBqM/';
 
-      if (rawData) {
-        try {
-          const parsed = JSON.parse(rawData);
-          window.appState.subjects = parsed.subjects || [];
-          window.appState.studyLogs = parsed.studyLogs || [];
-        } catch (e) {
-          console.warn("Error parsing profile data, resetting default", e);
-          window.appState.subjects = profileId === 'H' ? [...DEFAULT_H_SUBJECTS] : [...DEFAULT_M_SUBJECTS];
-          window.appState.studyLogs = [];
+    async function pushDataToCloud() {
+      if (window.appState.isSyncing) return;
+      window.appState.isSyncing = true;
+      setSyncStatusUI('saving');
+
+      try {
+        window.appState.store.updatedAt = Date.now();
+        const roomKey = encodeURIComponent(window.appState.syncRoomKey.trim().toUpperCase());
+        const payload = JSON.stringify(window.appState.store);
+
+        // Save to local cache first
+        localStorage.setItem(`aether_cloud_cache_${window.appState.syncRoomKey}`, payload);
+
+        // Push to public key-value store
+        const res = await fetch(`${CLOUD_SYNC_ENDPOINT}${roomKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload
+        });
+
+        if (res.ok) {
+          window.appState.lastCloudTimestamp = window.appState.store.updatedAt;
+          setSyncStatusUI('synced');
+        } else {
+          // Fallback: local sync successful
+          setSyncStatusUI('local');
         }
-      } else {
-        window.appState.subjects = profileId === 'H' ? [...DEFAULT_H_SUBJECTS] : [...DEFAULT_M_SUBJECTS];
-        window.appState.studyLogs = [];
-        saveProfileData(profileId);
+      } catch (err) {
+        console.warn("Cloud sync network notice:", err);
+        setSyncStatusUI('local');
+      } finally {
+        window.appState.isSyncing = false;
       }
-
-      if (window.appState.subjects.length > 0) {
-        window.appState.activeSubjectId = window.appState.subjects[0].id;
-      } else {
-        window.appState.activeSubjectId = null;
-      }
-
-      updateThemeColors(profileId);
-      resetTimerState();
-      renderAll();
     }
 
-    function saveProfileData(profileId) {
-      const storageKey = `aether_profile_${profileId}_data`;
-      const payload = {
-        profile: profileId,
-        lastUpdated: new Date().toISOString(),
-        subjects: window.appState.subjects,
-        studyLogs: window.appState.studyLogs
-      };
-      localStorage.setItem(storageKey, JSON.stringify(payload));
+    async function pullDataFromCloud(force = false) {
+      if (window.appState.isSyncing) return;
+      const roomKey = encodeURIComponent(window.appState.syncRoomKey.trim().toUpperCase());
+      setSyncStatusUI('syncing');
+
+      try {
+        const res = await fetch(`${CLOUD_SYNC_ENDPOINT}${roomKey}?t=${Date.now()}`);
+        if (res.ok) {
+          const remoteData = await res.json();
+          if (remoteData && remoteData.updatedAt) {
+            // Merge or replace if remote is newer or forced
+            if (force || remoteData.updatedAt > (window.appState.store.updatedAt || 0)) {
+              window.appState.store = remoteData;
+              localStorage.setItem(`aether_cloud_cache_${window.appState.syncRoomKey}`, JSON.stringify(remoteData));
+              renderAll();
+            }
+          }
+          setSyncStatusUI('synced');
+        } else if (res.status === 404) {
+          // Room does not exist yet on cloud, create it with local state
+          await pushDataToCloud();
+        } else {
+          setSyncStatusUI('local');
+        }
+      } catch (err) {
+        // Load from local storage cache if offline
+        const cached = localStorage.getItem(`aether_cloud_cache_${window.appState.syncRoomKey}`);
+        if (cached) {
+          try {
+            window.appState.store = JSON.parse(cached);
+            renderAll();
+          } catch(e){}
+        }
+        setSyncStatusUI('local');
+      }
     }
-    // Switch between Profile H and Profile M
+
+    function setSyncStatusUI(status) {
+      const dot = document.getElementById('cloud-indicator-dot');
+      const text = document.getElementById('cloud-status-text');
+      const timeDisplay = document.getElementById('cloud-last-sync-time');
+      const roomDisplay = document.getElementById('cloud-room-id-display');
+      const modalDot = document.getElementById('modal-cloud-dot');
+      const modalStatus = document.getElementById('modal-cloud-status');
+      const spinIcon = document.getElementById('sync-spin-icon');
+
+      roomDisplay.textContent = window.appState.syncRoomKey;
+
+      if (status === 'syncing' || status === 'saving') {
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
+        text.className = 'text-amber-400 font-semibold';
+        text.textContent = status === 'saving' ? 'Saving...' : 'Syncing...';
+        if (spinIcon) spinIcon.classList.add('animate-spin');
+      } else if (status === 'synced') {
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        text.className = 'text-emerald-400 font-semibold';
+        text.textContent = 'Cloud Synced:';
+        if (spinIcon) spinIcon.classList.remove('animate-spin');
+        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        timeDisplay.textContent = `Cloud synced at ${timeStr}`;
+        if (modalDot) modalDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        if (modalStatus) modalStatus.textContent = 'Live Connected';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-sky-400';
+        text.className = 'text-sky-400 font-semibold';
+        text.textContent = 'Local Active:';
+        if (spinIcon) spinIcon.classList.remove('animate-spin');
+        timeDisplay.textContent = 'Saved on device';
+        if (modalDot) modalDot.className = 'w-2 h-2 rounded-full bg-sky-400';
+        if (modalStatus) modalStatus.textContent = 'Local Standalone Mode';
+      }
+    }
+
+    window.triggerManualSync = async function() {
+      await pullDataFromCloud(true);
+      await pushDataToCloud();
+    };
+
+    window.connectCustomSyncRoom = function() {
+      const input = document.getElementById('sync-room-input');
+      const key = input.value.trim().toUpperCase();
+      if (!key) return;
+      window.appState.syncRoomKey = key;
+      localStorage.setItem('aether_sync_room_key', key);
+      pullDataFromCloud(true);
+      closeSyncModal();
+    };
+
+    window.generateRandomRoomKey = function() {
+      const words = ['STUDY', 'FOCUS', 'AETHER', 'NEURAL', 'MATRIX', 'ORBIT'];
+      const num = Math.floor(1000 + Math.random() * 9000);
+      const rand = words[Math.floor(Math.random() * words.length)] + '-' + num;
+      document.getElementById('sync-room-input').value = rand;
+    };
+
+    window.copyCurrentRoomKey = function() {
+      const key = window.appState.syncRoomKey;
+      const el = document.createElement('textarea');
+      el.value = key;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      alert(`Sync Room Key "${key}" copied to clipboard! Enter this exact key on your phone to connect.`);
+    };
+
+    function getActiveProfileStore() {
+      return window.appState.activeProfile === 'H' 
+        ? window.appState.store.profileH 
+        : window.appState.store.profileM;
+    }
+
     window.switchProfile = function(targetProfile) {
       if (window.appState.activeProfile === targetProfile) return;
 
-      // Stop any running session cleanly
       if (window.appState.isRunning) {
         if (!confirm(`Switch to profile ${targetProfile}? Active timer on profile ${window.appState.activeProfile} will be stopped.`)) {
           return;
@@ -627,7 +797,16 @@
       window.appState.activeProfile = targetProfile;
       localStorage.setItem('aether_active_profile', targetProfile);
 
-      loadProfileData(targetProfile);
+      const store = getActiveProfileStore();
+      if (store.subjects.length > 0) {
+        window.appState.activeSubjectId = store.subjects[0].id;
+      } else {
+        window.appState.activeSubjectId = null;
+      }
+
+      updateThemeColors(targetProfile);
+      resetTimerState();
+      renderAll();
     };
 
     function updateThemeColors(profileId) {
@@ -677,10 +856,8 @@
         timerBtnToggle.className = 'px-8 py-3.5 rounded-2xl bg-gradient-to-r from-rose-400 to-purple-500 hover:from-rose-300 hover:to-purple-400 text-black font-extrabold text-sm shadow-xl shadow-rose-500/25 transition hover:scale-105 active:scale-95';
         dialRing.style.stroke = '#f43f5e';
       }
-
-      document.getElementById('backup-modal-profile').textContent = profileId;
     }
-    // Timer Controller with Date.now() timestamp delta (survives phone lock and background throttling)
+
     function toggleTimer() {
       if (window.appState.isRunning) {
         pauseTimer();
@@ -690,8 +867,9 @@
     }
 
     function startTimer() {
-      if (!window.appState.activeSubjectId && window.appState.subjects.length > 0) {
-        window.appState.activeSubjectId = window.appState.subjects[0].id;
+      const store = getActiveProfileStore();
+      if (!window.appState.activeSubjectId && store.subjects.length > 0) {
+        window.appState.activeSubjectId = store.subjects[0].id;
       }
       if (!window.appState.activeSubjectId) {
         openSubjectModal();
@@ -738,6 +916,8 @@
       }
 
       const duration = window.appState.totalElapsedSeconds;
+      const store = getActiveProfileStore();
+
       if (duration >= 5 && window.appState.activeSubjectId) {
         const note = document.getElementById('timer-session-note').value.trim();
         const newLog = {
@@ -749,8 +929,8 @@
           notes: note || 'Completed study session'
         };
 
-        window.appState.studyLogs.unshift(newLog);
-        saveProfileData(window.appState.activeProfile);
+        store.studyLogs.unshift(newLog);
+        pushDataToCloud(); // Save to cloud immediately
         playChimeTone();
       }
 
@@ -773,7 +953,7 @@
         ? 'px-8 py-3.5 rounded-2xl bg-gradient-to-r from-sky-400 to-blue-500 hover:from-sky-300 hover:to-blue-400 text-black font-extrabold text-sm shadow-xl shadow-sky-500/25 transition'
         : 'px-8 py-3.5 rounded-2xl bg-gradient-to-r from-rose-400 to-purple-500 hover:from-rose-300 hover:to-purple-400 text-black font-extrabold text-sm shadow-xl shadow-rose-500/25 transition';
       document.getElementById('timer-status-text').textContent = 'Ready';
-      document.title = 'AetherFocus - Focus Engine & Study Tracker';
+      document.title = 'AetherFocus Cloud';
       updateTimerDisplay();
     }
 
@@ -789,7 +969,7 @@
           pauseTimer();
           playChimeTone();
           stopAndLogTimer();
-          document.getElementById('timer-status-text').textContent = 'Pomodoro Finished!';
+          document.getElementById('timer-status-text').textContent = 'Pomodoro Completed!';
           return;
         }
       }
@@ -800,7 +980,8 @@
     function updateTimerDisplay() {
       const ring = document.getElementById('timer-dial-ring');
       const display = document.getElementById('timer-digits-display');
-      const sub = window.appState.subjects.find(s => s.id === window.appState.activeSubjectId);
+      const store = getActiveProfileStore();
+      const sub = store.subjects.find(s => s.id === window.appState.activeSubjectId);
       const subName = sub ? sub.name : 'Focus Session';
 
       if (window.appState.timerMode === 'pomodoro') {
@@ -810,16 +991,16 @@
 
         const fraction = Math.min(window.appState.totalElapsedSeconds / target, 1);
         ring.style.strokeDashoffset = 276.46 - (fraction * 276.46);
-        document.title = window.appState.isRunning ? `[${formatHMS(remaining)}] ${subName} | AetherFocus` : 'AetherFocus';
+        document.title = window.appState.isRunning ? `[${formatHMS(remaining)}] ${subName} | AetherFocus` : 'AetherFocus Cloud';
       } else {
         display.textContent = formatHMS(window.appState.totalElapsedSeconds);
         const fraction = (window.appState.totalElapsedSeconds % 3600) / 3600;
         ring.style.strokeDashoffset = 276.46 - (fraction * 276.46);
-        document.title = window.appState.isRunning ? `[${formatHMS(window.appState.totalElapsedSeconds)}] ${subName} | AetherFocus` : 'AetherFocus';
+        document.title = window.appState.isRunning ? `[${formatHMS(window.appState.totalElapsedSeconds)}] ${subName} | AetherFocus` : 'AetherFocus Cloud';
       }
     }
 
-    // Wake lock & background listeners
+    // Wake Lock & visibility handling
     async function toggleWakeLock() {
       if ('wakeLock' in navigator) {
         if (!window.appState.wakeLock) {
@@ -847,6 +1028,7 @@
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         recalculateTimerDelta();
+        pullDataFromCloud(); // Auto-check for changes when phone is unlocked
       }
     });
 
@@ -856,7 +1038,7 @@
       const s = totalSeconds % 60;
       return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     }
-    // Rendering views
+
     window.renderAll = function() {
       renderDashboardStats();
       renderSubjectsGrid();
@@ -866,6 +1048,7 @@
     };
 
     function renderDashboardStats() {
+      const store = getActiveProfileStore();
       const todayStr = new Date().toISOString().split('T')[0];
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -874,7 +1057,7 @@
       let weekSecs = 0;
       let allSecs = 0;
 
-      window.appState.studyLogs.forEach(log => {
+      store.studyLogs.forEach(log => {
         allSecs += log.duration || 0;
         if (log.dateString === todayStr) todaySecs += log.duration || 0;
         if (new Date(log.dateString) >= sevenDaysAgo) weekSecs += log.duration || 0;
@@ -885,9 +1068,9 @@
       document.getElementById('stat-week-time').textContent = formatHMS(weekSecs);
       document.getElementById('stat-week-hours').textContent = `${(weekSecs / 3600).toFixed(1)} hrs this week`;
       document.getElementById('stat-alltime-hours').textContent = `${(allSecs / 3600).toFixed(1)} hrs`;
-      document.getElementById('stat-sessions-count').textContent = `${window.appState.studyLogs.length} total sessions`;
+      document.getElementById('stat-sessions-count').textContent = `${store.studyLogs.length} total sessions`;
 
-      const days = new Set(window.appState.studyLogs.map(l => l.dateString));
+      const days = new Set(store.studyLogs.map(l => l.dateString));
       let streak = 0;
       let curr = new Date();
       while (true) {
@@ -911,21 +1094,22 @@
     }
 
     function renderSubjectsGrid() {
+      const store = getActiveProfileStore();
       const container = document.getElementById('subjects-container');
       container.innerHTML = '';
 
-      if (window.appState.subjects.length === 0) {
+      if (store.subjects.length === 0) {
         container.innerHTML = `
           <div class="col-span-full text-center py-12 border border-dashed border-brand-border rounded-3xl p-6">
-            <p class="text-slate-400 text-xs mb-3">No study subjects created yet for Profile ${window.appState.activeProfile}.</p>
+            <p class="text-slate-400 text-xs mb-3">No study subjects yet for Profile ${window.appState.activeProfile}.</p>
             <button onclick="openSubjectModal()" class="px-4 py-2 rounded-xl bg-sky-500 text-black font-bold text-xs">Create First Subject</button>
           </div>
         `;
         return;
       }
 
-      window.appState.subjects.forEach(sub => {
-        const logs = window.appState.studyLogs.filter(l => l.subjectId === sub.id);
+      store.subjects.forEach(sub => {
+        const logs = store.studyLogs.filter(l => l.subjectId === sub.id);
         const totalDuration = logs.reduce((acc, c) => acc + (c.duration || 0), 0);
         const hours = (totalDuration / 3600).toFixed(1);
         const goalPercent = Math.min(100, ((totalDuration / 3600) / (sub.goalHours || 7)) * 100).toFixed(0);
@@ -965,9 +1149,10 @@
     }
 
     function renderTimerTopicPicker() {
+      const store = getActiveProfileStore();
       const picker = document.getElementById('timer-subject-picker');
       picker.innerHTML = '';
-      window.appState.subjects.forEach(s => {
+      store.subjects.forEach(s => {
         const opt = document.createElement('option');
         opt.value = s.id;
         opt.textContent = `${s.name} (${s.tag || 'General'})`;
@@ -975,7 +1160,7 @@
         picker.appendChild(opt);
       });
 
-      const activeSub = window.appState.subjects.find(s => s.id === window.appState.activeSubjectId);
+      const activeSub = store.subjects.find(s => s.id === window.appState.activeSubjectId);
       document.getElementById('timer-active-topic-name').textContent = activeSub ? activeSub.name : 'Select Topic';
       if (activeSub) {
         document.getElementById('timer-dial-ring').style.stroke = activeSub.color || '#38bdf8';
@@ -995,6 +1180,7 @@
     };
 
     function renderCalendarHeatmap() {
+      const store = getActiveProfileStore();
       const d = window.appState.calendarMonth;
       const year = d.getFullYear();
       const month = d.getMonth();
@@ -1011,7 +1197,7 @@
 
       for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const dayLogs = window.appState.studyLogs.filter(l => l.dateString === dateStr);
+        const dayLogs = store.studyLogs.filter(l => l.dateString === dateStr);
         const daySecs = dayLogs.reduce((acc, c) => acc + (c.duration || 0), 0);
         const hours = daySecs / 3600;
 
@@ -1034,8 +1220,9 @@
     }
 
     function inspectCalendarDate(dateStr) {
+      const store = getActiveProfileStore();
       document.getElementById('cal-inspector-date').textContent = dateStr;
-      const logs = window.appState.studyLogs.filter(l => l.dateString === dateStr);
+      const logs = store.studyLogs.filter(l => l.dateString === dateStr);
       const totalSecs = logs.reduce((acc, c) => acc + (c.duration || 0), 0);
       document.getElementById('cal-inspector-total').textContent = `${(totalSecs / 3600).toFixed(1)} hrs`;
 
@@ -1054,7 +1241,7 @@
       });
 
       Object.entries(grouped).forEach(([subId, secs]) => {
-        const sub = window.appState.subjects.find(s => s.id === subId);
+        const sub = store.subjects.find(s => s.id === subId);
         const item = document.createElement('div');
         item.className = 'flex items-center justify-between p-2 rounded-xl bg-brand-surface border border-brand-border text-xs';
         item.innerHTML = `
@@ -1071,13 +1258,14 @@
     }
 
     function renderAnalyticsBars() {
+      const store = getActiveProfileStore();
       const container = document.getElementById('analytics-distribution-bars');
       container.innerHTML = '';
 
-      const totalSecs = window.appState.studyLogs.reduce((acc, c) => acc + (c.duration || 0), 0) || 1;
+      const totalSecs = store.studyLogs.reduce((acc, c) => acc + (c.duration || 0), 0) || 1;
 
-      window.appState.subjects.forEach(sub => {
-        const logs = window.appState.studyLogs.filter(l => l.subjectId === sub.id);
+      store.subjects.forEach(sub => {
+        const logs = store.studyLogs.filter(l => l.subjectId === sub.id);
         const subSecs = logs.reduce((acc, c) => acc + (c.duration || 0), 0);
         const pct = ((subSecs / totalSecs) * 100).toFixed(1);
 
@@ -1101,7 +1289,8 @@
         container.appendChild(row);
       });
     }
-    // Tab Switching
+
+    // Tab Navigation
     window.switchTab = function(tabId) {
       ['dashboard', 'timer', 'calendar', 'analytics'].forEach(t => {
         const view = document.getElementById(`view-${t}`);
@@ -1174,7 +1363,6 @@
       renderCalendarHeatmap();
     };
 
-    // Subject Form Actions
     window.openSubjectModal = function() {
       document.getElementById('form-subject-id').value = '';
       document.getElementById('form-subject-name').value = '';
@@ -1189,7 +1377,8 @@
     };
 
     window.editSubject = function(subId) {
-      const sub = window.appState.subjects.find(s => s.id === subId);
+      const store = getActiveProfileStore();
+      const sub = store.subjects.find(s => s.id === subId);
       if (!sub) return;
       document.getElementById('form-subject-id').value = sub.id;
       document.getElementById('form-subject-name').value = sub.name;
@@ -1200,18 +1389,20 @@
     };
 
     window.deleteSubject = function(subId) {
-      const sub = window.appState.subjects.find(s => s.id === subId);
+      const store = getActiveProfileStore();
+      const sub = store.subjects.find(s => s.id === subId);
       if (!sub) return;
-      if (confirm(`Delete subject "${sub.name}" and all associated timers from Profile ${window.appState.activeProfile}?`)) {
-        window.appState.subjects = window.appState.subjects.filter(s => s.id !== subId);
-        window.appState.studyLogs = window.appState.studyLogs.filter(l => l.subjectId !== subId);
-        saveProfileData(window.appState.activeProfile);
+      if (confirm(`Delete subject "${sub.name}" from Profile ${window.appState.activeProfile}? It will be removed from all connected devices.`)) {
+        store.subjects = store.subjects.filter(s => s.id !== subId);
+        store.studyLogs = store.studyLogs.filter(l => l.subjectId !== subId);
+        pushDataToCloud();
         renderAll();
       }
     };
 
     window.handleSubjectSubmit = function(e) {
       e.preventDefault();
+      const store = getActiveProfileStore();
       const id = document.getElementById('form-subject-id').value;
       const name = document.getElementById('form-subject-name').value.trim();
       const tag = document.getElementById('form-subject-tag').value.trim();
@@ -1221,7 +1412,7 @@
       const color = activeColorBtn ? activeColorBtn.getAttribute('data-color') : '#38bdf8';
 
       if (id) {
-        window.appState.subjects = window.appState.subjects.map(s => s.id === id ? { ...s, name, tag, goalHours, color } : s);
+        store.subjects = store.subjects.map(s => s.id === id ? { ...s, name, tag, goalHours, color } : s);
       } else {
         const newSub = {
           id: `sub_${Date.now()}`,
@@ -1230,13 +1421,13 @@
           goalHours,
           color
         };
-        window.appState.subjects.push(newSub);
+        store.subjects.push(newSub);
         if (!window.appState.activeSubjectId) {
           window.appState.activeSubjectId = newSub.id;
         }
       }
 
-      saveProfileData(window.appState.activeProfile);
+      pushDataToCloud();
       closeSubjectModal();
       renderAll();
     };
@@ -1251,27 +1442,23 @@
       });
     });
 
-    // Backup & JSON modal
-    window.openBackupModal = function() {
-      document.getElementById('modal-backup').classList.remove('hidden');
+    // Cloud Sync Modal UI
+    window.openSyncModal = function() {
+      document.getElementById('sync-room-input').value = window.appState.syncRoomKey;
+      document.getElementById('modal-sync').classList.remove('hidden');
     };
 
-    window.closeBackupModal = function() {
-      document.getElementById('modal-backup').classList.add('hidden');
+    window.closeSyncModal = function() {
+      document.getElementById('modal-sync').classList.add('hidden');
     };
 
+    // Backup & JSON File Export / Import
     window.exportUserDataJSON = function() {
-      const data = {
-        profile: window.appState.activeProfile,
-        exportDate: new Date().toISOString(),
-        subjects: window.appState.subjects,
-        studyLogs: window.appState.studyLogs
-      };
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(window.appState.store, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `aether_profile_${window.appState.activeProfile}_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `aether_sync_room_${window.appState.syncRoomKey}_${new Date().toISOString().split('T')[0]}.json`;
       a.click();
       URL.revokeObjectURL(url);
     };
@@ -1283,33 +1470,45 @@
       reader.onload = function(evt) {
         try {
           const parsed = JSON.parse(evt.target.result);
-          if (Array.isArray(parsed.subjects)) window.appState.subjects = parsed.subjects;
-          if (Array.isArray(parsed.studyLogs)) window.appState.studyLogs = parsed.studyLogs;
-          saveProfileData(window.appState.activeProfile);
-          renderAll();
-          closeBackupModal();
-          alert(`Successfully imported data into Profile ${window.appState.activeProfile}!`);
+          if (parsed.profileH || parsed.profileM) {
+            window.appState.store = parsed;
+            pushDataToCloud();
+            renderAll();
+            closeSyncModal();
+            alert("Backup imported successfully and uploaded to Cloud Room!");
+          } else {
+            alert("File format unrecognized. Please use an AetherFocus backup file.");
+          }
         } catch (err) {
-          alert("Invalid backup file: " + err.message);
+          alert("Invalid JSON file: " + err.message);
         }
       };
       reader.readAsText(file);
     };
 
-    window.confirmClearCurrentProfile = function() {
-      if (confirm(`Clear all subjects and logged study times for Profile ${window.appState.activeProfile}? This cannot be undone.`)) {
-        window.appState.subjects = [];
-        window.appState.studyLogs = [];
-        saveProfileData(window.appState.activeProfile);
-        resetTimerState();
-        renderAll();
-        closeBackupModal();
+    window.onload = async function() {
+      updateThemeColors(window.appState.activeProfile);
+      
+      // Load from local storage cache first to show immediately
+      const cached = localStorage.getItem(`aether_cloud_cache_${window.appState.syncRoomKey}`);
+      if (cached) {
+        try {
+          window.appState.store = JSON.parse(cached);
+        } catch(e){}
       }
-    };
 
-    // Initialize application on load
-    window.onload = function() {
-      loadProfileData(window.appState.activeProfile);
+      renderAll();
+
+      // Immediately connect to cloud room and fetch remote data
+      await pullDataFromCloud(false);
+
+      // Auto-poll cloud every 20 seconds so laptop and phone stay in sync effortlessly
+      clearInterval(cloudAutoSyncInterval);
+      cloudAutoSyncInterval = setInterval(() => {
+        if (!window.appState.isRunning) {
+          pullDataFromCloud(false);
+        }
+      }, 20000);
     };
   </script>
 </body>
